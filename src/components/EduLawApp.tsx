@@ -66,7 +66,7 @@ interface ChatSession {
 
 const SAVED_STORAGE_KEY = "edulaw_vn_saved_v2";
 const CHATS_STORAGE_KEY = "edulaw_vn_chats_v2";
-const LLM_CONFIG_STORAGE_KEY = "edulaw_vn_llm_config_v1";
+const LLM_CONFIG_STORAGE_KEY = "edulaw_vn_llm_config_v2";
 
 const DEFAULT_LLM_CONFIG: LLMConfig = {
   provider: "ollama",
@@ -74,7 +74,7 @@ const DEFAULT_LLM_CONFIG: LLMConfig = {
   apiKey: "",
   baseUrl: "http://localhost:11434",
   enableWebSearch: false,
-  enableReasoning: true,
+  enableReasoning: false,
 };
 
 const PERSONA_OPTIONS: { id: Persona; label: string; short: string }[] = [
@@ -281,8 +281,8 @@ function ReasoningAccordion({
           />
           <span>
             {isStreaming
-              ? "Đang tư duy (Reasoning)..."
-              : "Quá trình tư duy (Reasoning)"}
+              ? "Đang suy luận..."
+              : "Quá trình suy luận"}
           </span>
         </span>
         {expanded ? (
@@ -889,32 +889,52 @@ export function EduLawApp() {
           {/* Model + Persona Selector Row (exact match to "Select a model" in screenshot) */}
           {activeView === "chat" && (
             <div className="mt-2.5 ml-1 md:ml-8 flex flex-wrap items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => setSettingsOpen(true)}
-                className="group text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-1.5 text-sm font-semibold text-white group-hover:text-sky-200 transition">
-                  <span>{providerLabel}</span>
-                  <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
-                </div>
-                <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-                  {llmConfig.enableReasoning && (
-                    <span className="inline-flex items-center gap-1 text-purple-300">
-                      <Brain className="h-3 w-3" /> Reasoning
-                    </span>
-                  )}
-                  {llmConfig.provider === "gemini" && llmConfig.enableWebSearch && (
-                    <span className="inline-flex items-center gap-1 text-sky-300">
-                      <Globe className="h-3 w-3" /> Tìm kiếm web trực tiếp
-                    </span>
-                  )}
-                  {!llmConfig.enableReasoning &&
-                    !(llmConfig.provider === "gemini" && llmConfig.enableWebSearch) && (
-                      <span>Bấm để đổi model hoặc nhập API Key</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(true)}
+                  className="group text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-1.5 text-sm font-semibold text-white group-hover:text-sky-200 transition">
+                    <span>{providerLabel}</span>
+                    <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] text-zinc-400">
+                    {llmConfig.provider === "gemini" && llmConfig.enableWebSearch ? (
+                      <span className="inline-flex items-center gap-1 text-sky-300">
+                        <Globe className="h-3 w-3" /> Tìm kiếm web trực tiếp
+                      </span>
+                    ) : (
+                      <span>
+                        {llmConfig.enableReasoning
+                          ? "Đang bật suy luận sâu (100% tiếng Việt)"
+                          : "Chế độ trả lời nhanh (đã tắt suy luận)"}
+                      </span>
                     )}
-                </div>
-              </button>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    saveLLMConfig({
+                      ...llmConfig,
+                      enableReasoning: !llmConfig.enableReasoning,
+                    })
+                  }
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition cursor-pointer ${
+                    llmConfig.enableReasoning
+                      ? "border-purple-400/50 bg-purple-500/15 text-purple-200 hover:bg-purple-500/25"
+                      : "border-[#3a3c48] bg-[#191a21] text-zinc-400 hover:text-zinc-200"
+                  }`}
+                  title="Bật/tắt chế độ suy luận sâu"
+                >
+                  <Brain className="h-3 w-3" />
+                  <span>
+                    {llmConfig.enableReasoning ? "Suy luận: Bật" : "Suy luận: Tắt (Nhanh)"}
+                  </span>
+                </button>
+              </div>
 
               {/* Compact Persona Pills */}
               <div className="flex items-center rounded-lg bg-[#191a21] p-0.5 border border-[#2f303c] text-[11px]">

@@ -24,8 +24,8 @@ Thời điểm hiện tại: Tháng 11/2026. Đối tượng: ${personaDesc}
 Nguyên tắc trả lời:
 1. Mở đầu bằng **Kết luận ngắn gọn (1–2 câu)** trả lời thẳng vào câu hỏi.
 2. Nêu rõ **Số hiệu Thông tư / Nghị định**, **Điều khoản** và **mốc hiệu lực** nếu có.
-3. Trình bày súc tích bằng gạch đầu dòng, dễ tra cứu. Nếu có suy luận nội bộ, chỉ suy luận thật ngắn gọn (tối đa 3–4 ý ngắn) rồi đi thẳng vào câu trả lời.
-4. Trả lời hoàn toàn bằng **tiếng Việt**.
+3. Trình bày súc tích bằng gạch đầu dòng, dễ tra cứu.
+4. **BẮT BUỘC 100% TIẾNG VIỆT:** Cả quá trình suy luận nội bộ (nếu bật) lẫn câu trả lời cuối cùng đều phải viết hoàn toàn bằng tiếng Việt, tuyệt đối không dùng tiếng Anh. Nếu có suy luận, chỉ suy luận thật ngắn gọn (tối đa 3 câu tiếng Việt) rồi trả lời ngay.
 
 ${
   referenceContext
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     apiKey: body?.llmConfig?.apiKey,
     baseUrl: body?.llmConfig?.baseUrl,
     enableWebSearch: body?.llmConfig?.enableWebSearch ?? true,
-    enableReasoning: body?.llmConfig?.enableReasoning ?? true,
+    enableReasoning: body?.llmConfig?.enableReasoning ?? false,
   };
 
   // Retrieve top-2 relevant circulars as quick context + clickable citation cards
