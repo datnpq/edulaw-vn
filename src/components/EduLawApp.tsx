@@ -41,6 +41,7 @@ import {
   Scale,
   Search,
   Settings,
+  Square,
   SquarePen,
   Trash2,
   User,
@@ -250,8 +251,21 @@ function FormattedAnswer({ text }: { text: string }) {
   );
 }
 
-function ReasoningAccordion({ reasoning }: { reasoning: string }) {
-  const [expanded, setExpanded] = useState(false);
+function ReasoningAccordion({
+  reasoning,
+  isStreaming,
+}: {
+  reasoning: string;
+  isStreaming?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(Boolean(isStreaming));
+
+  useEffect(() => {
+    if (isStreaming) {
+      setExpanded(true);
+    }
+  }, [isStreaming]);
+
   return (
     <div className="rounded-xl border border-purple-500/25 bg-purple-500/[0.06] overflow-hidden">
       <button
@@ -260,8 +274,16 @@ function ReasoningAccordion({ reasoning }: { reasoning: string }) {
         className="flex w-full items-center justify-between gap-2 px-3.5 py-2 text-xs font-medium text-purple-200 hover:bg-purple-500/10 transition cursor-pointer"
       >
         <span className="flex items-center gap-2">
-          <Brain className="h-3.5 w-3.5 text-purple-300" />
-          <span>Quá trình tư duy (Reasoning)</span>
+          <Brain
+            className={`h-3.5 w-3.5 text-purple-300 ${
+              isStreaming ? "animate-pulse" : ""
+            }`}
+          />
+          <span>
+            {isStreaming
+              ? "Đang tư duy (Reasoning)..."
+              : "Quá trình tư duy (Reasoning)"}
+          </span>
         </span>
         {expanded ? (
           <ChevronDown className="h-3.5 w-3.5 text-purple-300" />
@@ -303,6 +325,8 @@ export function EduLawApp() {
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const [streamingTurnId, setStreamingTurnId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -406,6 +430,13 @@ export function EduLawApp() {
     }
   }
 
+  function handleStop() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+    setStreamingTurnId(null);
+  }
+
   async function handleAsk(questionText?: string) {
     const q = (questionText ?? input).trim();
     if (!q || loading) return;
@@ -424,10 +455,73 @@ export function EduLawApp() {
       }
     }
 
+    const turnId = `qa-${Date.now()}`;
+    const timestamp = new Date().toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const initialTurn: ChatTurn = {
+      id: turnId,
+      query: q,
+      timestamp,
+      response: {
+        answer: "",
+        reasoning: "",
+        practicalTips: [],
+        citations: [],
+        webSources: [],
+        relatedQuestions: [],
+        mode: llmConfig.provider,
+        modelUsed: llmConfig.model,
+        matchedKeywords: [],
+      },
+    };
+
+    let targetSessionId = activeSessionId;
+    if (!targetSessionId) {
+      targetSessionId = `chat-${Date.now()}`;
+      const newSession: ChatSession = {
+        id: targetSessionId,
+        title: q.length > 46 ? q.slice(0, 46) + "…" : q,
+        createdAt: new Date().toLocaleDateString("vi-VN"),
+        turns: [initialTurn],
+      };
+      setSessions((prev) => [newSession, ...prev]);
+      setActiveSessionId(targetSessionId);
+    } else {
+      const sid = targetSessionId;
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === sid ? { ...s, turns: [...s.turns, initialTurn] } : s
+        )
+      );
+    }
+
+    setStreamingTurnId(turnId);
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const updateTurn = (updater: (r: QAResponse) => QAResponse) => {
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === targetSessionId
+            ? {
+                ...s,
+                turns: s.turns.map((t) =>
+                  t.id === turnId ? { ...t, response: updater(t.response) } : t
+                ),
+              }
+            : s
+        )
+      );
+    };
+
     try {
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           query: q,
           persona,
@@ -435,41 +529,87 @@ export function EduLawApp() {
           llmConfig,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data?.error ?? "Đã có lỗi xảy ra khi gọi LLM.");
-      } else {
-        const turn: ChatTurn = {
-          id: `qa-${Date.now()}`,
-          query: q,
-          response: data as QAResponse,
-          timestamp: new Date().toLocaleTimeString("vi-VN", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        };
 
-        if (activeSessionId) {
-          const updated = sessions.map((s) =>
-            s.id === activeSessionId ? { ...s, turns: [...s.turns, turn] } : s
-          );
-          persistSessions(updated);
-        } else {
-          const newId = `chat-${Date.now()}`;
-          const newSession: ChatSession = {
-            id: newId,
-            title: q.length > 46 ? q.slice(0, 46) + "…" : q,
-            createdAt: new Date().toLocaleDateString("vi-VN"),
-            turns: [turn],
-          };
-          persistSessions([newSession, ...sessions]);
-          setActiveSessionId(newId);
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error ?? "Đã có lỗi xảy ra khi gọi LLM.");
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const evt = JSON.parse(line);
+            if (evt.type === "meta") {
+              updateTurn((r) => ({
+                ...r,
+                citations: evt.citations ?? [],
+                modelUsed: evt.modelUsed ?? r.modelUsed,
+                mode: evt.mode ?? r.mode,
+              }));
+            } else if (evt.type === "reasoning" && evt.delta) {
+              updateTurn((r) => ({
+                ...r,
+                reasoning: (r.reasoning ?? "") + evt.delta,
+              }));
+            } else if (evt.type === "answer" && evt.delta) {
+              updateTurn((r) => ({
+                ...r,
+                answer: r.answer + evt.delta,
+              }));
+            } else if (evt.type === "sources" && Array.isArray(evt.webSources)) {
+              updateTurn((r) => ({
+                ...r,
+                webSources: evt.webSources,
+              }));
+            } else if (evt.type === "setup_required") {
+              updateTurn((r) => ({
+                ...r,
+                answer: evt.answer,
+                needsSetup: true,
+                mode: "local-fallback",
+                modelUsed: "Chưa kết nối LLM",
+              }));
+            } else if (evt.type === "error") {
+              setError(evt.error || "Lỗi khi sinh câu trả lời từ LLM.");
+            }
+          } catch {
+            // Skip partial JSON line
+          }
         }
       }
-    } catch {
-      setError("Không thể kết nối máy chủ tra cứu. Vui lòng thử lại.");
+
+      // Persist final updated sessions to localStorage
+      setSessions((prev) => {
+        try {
+          localStorage.setItem(
+            CHATS_STORAGE_KEY,
+            JSON.stringify(prev.slice(0, 30))
+          );
+        } catch {
+          // Ignore
+        }
+        return prev;
+      });
+    } catch (err) {
+      if ((err as Error)?.name !== "AbortError") {
+        setError("Không thể kết nối máy chủ tra cứu. Vui lòng thử lại.");
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
+      setStreamingTurnId(null);
     }
   }
 
@@ -856,11 +996,26 @@ export function EduLawApp() {
                             {turn.response.reasoning && (
                               <ReasoningAccordion
                                 reasoning={turn.response.reasoning}
+                                isStreaming={
+                                  streamingTurnId === turn.id &&
+                                  !turn.response.answer
+                                }
                               />
                             )}
 
-                            {/* Main LLM Answer */}
-                            <FormattedAnswer text={turn.response.answer} />
+                            {/* Main LLM Answer or Streaming Placeholder */}
+                            {turn.response.answer ? (
+                              <FormattedAnswer text={turn.response.answer} />
+                            ) : streamingTurnId === turn.id ? (
+                              <div className="flex items-center gap-2 text-xs text-zinc-400">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-300" />
+                                <span>
+                                  {turn.response.reasoning
+                                    ? `${turn.response.modelUsed} đang tổng hợp câu trả lời...`
+                                    : `${turn.response.modelUsed} đang khởi động tư duy...`}
+                                </span>
+                              </div>
+                            ) : null}
 
                             {/* Prompt to open LLM Settings if API key not yet configured */}
                             {turn.response.needsSetup && (
@@ -1013,20 +1168,6 @@ export function EduLawApp() {
                     );
                   })}
 
-                  {loading && (
-                    <div className="flex items-center gap-3 text-sm text-zinc-300">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-600 bg-[#2a2b34]">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
-                      </div>
-                      <span>
-                        {llmConfig.model} đang tư duy
-                        {llmConfig.provider === "gemini" && llmConfig.enableWebSearch
-                          ? " & tra cứu Thông tư trực tuyến..."
-                          : "..."}
-                      </span>
-                    </div>
-                  )}
-
                   {error && (
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/25 rounded-xl px-4 py-3">
                       <span>{error}</span>
@@ -1071,22 +1212,29 @@ export function EduLawApp() {
                     placeholder="Hỏi bất kỳ tình huống pháp lý giáo dục hoặc Thông tư Bộ GD&ĐT nào..."
                     className="flex-1 bg-transparent py-1 text-sm text-white placeholder:text-zinc-400 focus:outline-none"
                   />
-                  <button
-                    type="submit"
-                    disabled={loading || !input.trim()}
-                    title="Gửi câu hỏi"
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg transition cursor-pointer ${
-                      input.trim() && !loading
-                        ? "bg-white text-black hover:bg-zinc-200"
-                        : "bg-[#3b3d4a] text-zinc-500 cursor-not-allowed"
-                    }`}
-                  >
-                    {loading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
+                  {loading ? (
+                    <button
+                      type="button"
+                      onClick={handleStop}
+                      title="Dừng trả lời"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-black hover:bg-zinc-200 transition cursor-pointer"
+                    >
+                      <Square className="h-3.5 w-3.5 fill-current" />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={!input.trim()}
+                      title="Gửi câu hỏi"
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg transition cursor-pointer ${
+                        input.trim()
+                          ? "bg-white text-black hover:bg-zinc-200"
+                          : "bg-[#3b3d4a] text-zinc-500 cursor-not-allowed"
+                      }`}
+                    >
                       <ArrowUp className="h-4 w-4" />
-                    )}
-                  </button>
+                    </button>
+                  )}
                 </div>
                 <p className="mt-2 text-center text-[11px] text-zinc-500">
                   LLM có thể mắc sai sót. Vui lòng đối chiếu văn bản chính thức tại{" "}
