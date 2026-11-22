@@ -164,10 +164,16 @@ export async function POST(request: NextRequest) {
             "http://localhost:11434"
           ).replace(/\/$/, "");
 
+          const isQwen3 = config.model.toLowerCase().includes("qwen3");
+          const userContent =
+            isQwen3 && !config.enableReasoning
+              ? `${query}\n/no_think`
+              : query;
+
           const messages = [
             { role: "system", content: systemPrompt },
             ...history.map((m) => ({ role: m.role, content: m.content })),
-            { role: "user", content: query },
+            { role: "user", content: userContent },
           ];
 
           const res = await fetch(`${baseUrl}/api/chat`, {
@@ -181,7 +187,7 @@ export async function POST(request: NextRequest) {
               think: config.enableReasoning,
               options: {
                 num_ctx: 4096,
-                num_predict: config.enableReasoning ? 2048 : 1024,
+                num_predict: config.enableReasoning ? 2048 : 768,
                 temperature: 0.3,
               },
             }),
