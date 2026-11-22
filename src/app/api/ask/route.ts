@@ -164,33 +164,31 @@ export async function POST(request: NextRequest) {
             "http://localhost:11434"
           ).replace(/\/$/, "");
 
-          const isQwen3 = config.model.toLowerCase().includes("qwen3");
-          const userContent =
-            isQwen3 && !config.enableReasoning
-              ? `${query}\n/no_think`
-              : query;
-
           const messages = [
             { role: "system", content: systemPrompt },
             ...history.map((m) => ({ role: m.role, content: m.content })),
-            { role: "user", content: userContent },
+            { role: "user", content: query },
           ];
+
+          const ollamaBody: Record<string, unknown> = {
+            model: config.model,
+            messages,
+            stream: true,
+            options: {
+              num_ctx: 4096,
+              num_predict: config.enableReasoning ? 2048 : 768,
+              temperature: 0.3,
+            },
+          };
+          if (config.enableReasoning) {
+            ollamaBody.think = true;
+          }
 
           const res = await fetch(`${baseUrl}/api/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             signal: request.signal,
-            body: JSON.stringify({
-              model: config.model,
-              messages,
-              stream: true,
-              think: config.enableReasoning,
-              options: {
-                num_ctx: 4096,
-                num_predict: config.enableReasoning ? 2048 : 768,
-                temperature: 0.3,
-              },
-            }),
+            body: JSON.stringify(ollamaBody),
           });
 
           if (!res.ok || !res.body) {

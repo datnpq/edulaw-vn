@@ -66,11 +66,11 @@ interface ChatSession {
 
 const SAVED_STORAGE_KEY = "edulaw_vn_saved_v2";
 const CHATS_STORAGE_KEY = "edulaw_vn_chats_v2";
-const LLM_CONFIG_STORAGE_KEY = "edulaw_vn_llm_config_v2";
+const LLM_CONFIG_STORAGE_KEY = "edulaw_vn_llm_config_v3";
 
 const DEFAULT_LLM_CONFIG: LLMConfig = {
   provider: "ollama",
-  model: "qwen3:4b",
+  model: "qwen2.5:3b",
   apiKey: "",
   baseUrl: "http://localhost:11434",
   enableWebSearch: false,
@@ -916,12 +916,22 @@ export function EduLawApp() {
 
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    const nextReasoning = !llmConfig.enableReasoning;
+                    let nextModel = llmConfig.model;
+                    if (llmConfig.provider === "ollama") {
+                      if (nextReasoning && llmConfig.model === "qwen2.5:3b") {
+                        nextModel = "qwen3:4b";
+                      } else if (!nextReasoning && llmConfig.model === "qwen3:4b") {
+                        nextModel = "qwen2.5:3b";
+                      }
+                    }
                     saveLLMConfig({
                       ...llmConfig,
-                      enableReasoning: !llmConfig.enableReasoning,
-                    })
-                  }
+                      model: nextModel,
+                      enableReasoning: nextReasoning,
+                    });
+                  }}
                   className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition cursor-pointer ${
                     llmConfig.enableReasoning
                       ? "border-purple-400/50 bg-purple-500/15 text-purple-200 hover:bg-purple-500/25"

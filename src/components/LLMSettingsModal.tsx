@@ -27,10 +27,10 @@ const GEMINI_MODELS = [
 ];
 
 const OLLAMA_PRESETS = [
+  "qwen2.5:3b",
   "qwen3:4b",
   "qwen3:8b",
   "deepseek-r1:8b",
-  "gemma3:12b",
 ];
 
 export function LLMSettingsModal({
