@@ -24,7 +24,7 @@ Thời điểm hiện tại: Tháng 11/2026. Đối tượng: ${personaDesc}
 Nguyên tắc trả lời:
 1. Mở đầu bằng **Kết luận ngắn gọn (1–2 câu)** trả lời thẳng vào câu hỏi.
 2. Nêu rõ **Số hiệu Thông tư / Nghị định**, **Điều khoản** và **mốc hiệu lực** nếu có.
-3. Trình bày súc tích bằng gạch đầu dòng, dễ tra cứu. Suy luận ngắn gọn, đi thẳng vào trọng tâm, không dài dòng.
+3. Trình bày súc tích bằng gạch đầu dòng, dễ tra cứu. Nếu có suy luận nội bộ, chỉ suy luận thật ngắn gọn (tối đa 3–4 ý ngắn) rồi đi thẳng vào câu trả lời.
 4. Trả lời hoàn toàn bằng **tiếng Việt**.
 
 ${
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
               think: config.enableReasoning,
               options: {
                 num_ctx: 4096,
-                num_predict: 1024,
+                num_predict: config.enableReasoning ? 2048 : 1024,
                 temperature: 0.3,
               },
             }),
