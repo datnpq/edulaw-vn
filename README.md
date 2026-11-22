@@ -102,8 +102,18 @@ Vui lòng xem hướng dẫn chi tiết tại **[CONTRIBUTING.md](./CONTRIBUTING
 
 **EduLaw VN** được phát triển và duy trì hoàn toàn miễn phí cho cộng đồng giáo viên và sinh viên sư phạm Việt Nam. Nếu dự án giúp ích cho công việc giảng dạy hoặc học tập của bạn, bạn có thể ủng hộ một ly cà phê để duy trì máy chủ, tên miền và chi phí API AI cộng đồng:
 
+| Thông tin | Chi tiết |
+| :--- | :--- |
+| **Ngân hàng** | **MB Bank** (Ngân hàng TMCP Quân đội) |
+| **Số tài khoản** | `1010106828888` |
+| **Chủ tài khoản** | **NGUYEN PHAM QUOC DAT** |
+| **Nội dung gợi ý** | `Ung ho EduLaw VN` |
+
+<p align="center">
+  <img src="https://img.vietqr.io/image/MB-1010106828888-compact2.png?addInfo=Ung%20ho%20EduLaw%20VN&accountName=NGUYEN%20PHAM%20QUOC%20DAT" alt="VietQR MB Bank - NGUYEN PHAM QUOC DAT" width="280" />
+</p>
+
 - **GitHub Sponsors:** [github.com/sponsors/datnpq](https://github.com/sponsors/datnpq)
-- **Chuyển khoản ngân hàng / VietQR / MoMo:** *(Chủ dự án có thể cập nhật thông tin tài khoản hoặc ảnh mã VietQR tại đây)*
 - **Cách ủng hộ miễn phí:** Bấm **Star ⭐** cho repository và chia sẻ EduLaw VN đến đồng nghiệp, bạn bè trong ngành giáo dục!
 
 > Toàn bộ đóng góp được sử dụng minh bạch để duy trì hạ tầng hosting, tên miền và mở rộng kho dữ liệu pháp lý giáo dục mở.
