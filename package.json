@@ -1,7 +1,12 @@
 {
   "name": "edulaw-vn",
   "version": "1.0.0",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/datnpq/edulaw-vn.git"
+  },
+  "private": false,
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
